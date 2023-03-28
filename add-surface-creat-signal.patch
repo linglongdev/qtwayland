@@ -1,0 +1,39 @@
+From: wangxuwen <wangxuwen@uniontech.com>
+Date: Nov 3, 2020 4:43pm GMT+0800
+Subject: 添加创建surface完成的信号，用于与kwayland surface绑定
+
+添加创建surface完成的信号，用于与kwayland surface绑定
+
+Log: 添加创建surface完成的信号
+Change-Id: Ic081a370b15e5194275681c0519872da42c0e3f1
+
+gitlab: https://gitlabwh.uniontech.com/wuhan/debian-patch/qt5.15/qtwayland-opensource-src/-/commit/5f5368f5d04b449fb0f0af9ad442bf06be1f24c6
+
+---
+
+Index: qtwayland/src/client/qwaylandwindow.cpp
+===================================================================
+--- qtwayland.orig/src/client/qwaylandwindow.cpp
++++ qtwayland/src/client/qwaylandwindow.cpp
+@@ -143,6 +143,9 @@ void QWaylandWindow::initWindow()
+         mShellSurface = mDisplay->shellIntegration()->createShellSurface(this);
+         if (mShellSurface) {
+             // Set initial surface title
++
++            //添加一个surface创建完成的信号
++            emit shellSurfaceCreated();
+             setWindowTitle(window()->title());
+ 
+             // The appId is the desktop entry identifier that should follow the
+Index: qtwayland/src/client/qwaylandwindow_p.h
+===================================================================
+--- qtwayland.orig/src/client/qwaylandwindow_p.h
++++ qtwayland/src/client/qwaylandwindow_p.h
+@@ -211,6 +211,7 @@ public slots:
+ signals:
+     void wlSurfaceCreated();
+     void wlSurfaceDestroyed();
++    void shellSurfaceCreated();
+ 
+ protected:
+     QWaylandDisplay *mDisplay = nullptr;

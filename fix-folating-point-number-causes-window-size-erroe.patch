@@ -1,0 +1,61 @@
+From: chengong <chengong@uniontech.com>
+Date: Nov 20, 2020 4:41pm GMT+0800
+Subject: 修复窗口拉伸卡顿问题
+
+在缩放情况下，qplatformwindow的geometry和qwindow的geometry在使用toNativePixels和formNativePixels相互转换的时候存在尺寸上的误差，所以使用qwaylandwindow的geometry的size创建buffer提交给kwin，以防kwin在收到buffer以后检测buffer的size与拉伸的size有一个像素的误差导致kwin一直等待正确size的buffer，从而导致拉伸窗口卡顿。
+
+Log: 窗口拉伸卡顿与缩放有关
+Task: https://pms.uniontech.com/zentao/task-view-41071.html
+Change-Id: Ie70f7b87820eaf7fab621e356d8a68d8788b2c03
+
+gitlab: https://gitlabwh.uniontech.com/wuhan/debian-patch/qt5.15/qtwayland-opensource-src/-/commit/dab2eb02433cb629e907daec8609c7e19848c709
+---
+
+Index: qtwayland-opensource-src/src/client/qwaylandshmbackingstore.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandshmbackingstore.cpp
++++ qtwayland-opensource-src/src/client/qwaylandshmbackingstore.cpp
+@@ -203,7 +203,12 @@ void QWaylandShmBackingStore::ensureSize
+ {
+     waylandWindow()->setBackingStore(this);
+     waylandWindow()->createDecoration();
+-    resize(mRequestedSize);
++    // TODO: 缩放情况下，如果传入的size是QWindow*缩放比的size，可能会四舍五入。
++    // 会和QPlatformWindow有一个像素的误差，也会导致buffer的size和kwin那边surface的size不一致。
++    // 可以传入QWaylandWindow的Size保持与kwin一直，以防kwin等待的buffer的size有问题会一直等待，导致拉伸卡顿。
++    // 此处TODO标记和 QWaylandWindow::applyConfigure函数标记关联。
++    resize(waylandWindow()->geometry().size());
++
+ }
+ 
+ void QWaylandShmBackingStore::flush(QWindow *window, const QRegion &region, const QPoint &offset)
+Index: qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandwindow.cpp
++++ qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+@@ -388,7 +388,25 @@ void QWaylandWindow::resizeFromApplyConf
+ 
+     mOffset += offset;
+     mInResizeFromApplyConfigure = true;
++
++    // TODO: 如果在拉伸缓慢的情况下，如果QPlatformWindow的geometry只有一个像素点的变化，则底层不会通过resizeEvent重绘整个区域。
++    // 例如QPlatformWindow的geometry为(0, 0, 999, 1000)，对应的QWindow的geometry为(0, 0, 667, 667),
++    // 如果通过拉伸改变QPlatformWindow的geometry为(0, 0, 1001, 1000)，对应的QWindow的geometry还是为(0, 0, 667, 667),
++    // 此时QWindowSystemInterface::handleGeometryChange(window(), geometry());发送的信号对于QWindow来说是没有变化的。
++    // 所以以上通过QWindowSystemInterface::flushWindowSystemEvents();刷新消息事件不会重绘整个区域，就不会向kwin提交新的buffer，
++    // 但是kwin通过拉伸窗口设置geometry的时候需要等待新的buffer反馈才能继续拉伸，否则会一直等待，就会造成拉伸卡顿问题。
++    // 综上所述，通过调用对于requestUpdate刷新整个窗口，达到重新绘制的目的，但是存在窗口中的部分widget并没有绘制会导致窗口有透明区域。
++    // 追查发现requestUpdate只是针对调用了主窗口的widget->repaint()，最终到repaintAndFlush的时候，有些widget并没有调用drawWidget，
++    // 这个可能跟窗口的size和backingstore的size相同导致的(这个就是因为窗口尺寸未变化)，所以导致部分区域透明，这个通过修改qt源码修复这个问题
++    QRect oldRect = window()->geometry();
++    QRect oldWlRect = this->geometry();
++
+     setGeometry(geometry);
++
++    if (oldRect == window()->geometry() && oldWlRect != this->geometry()) {
++        window()->requestUpdate();
++    }
++
+     mInResizeFromApplyConfigure = false;
+ }
+ 

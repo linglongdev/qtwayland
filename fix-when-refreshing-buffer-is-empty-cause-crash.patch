@@ -1,0 +1,51 @@
+From: chengong <chengong@uniontech.com>
+Date: Dec 2, 2020 1:56pm GMT+0800
+Subject: 解决设置仅DP-1屏幕显示，拔掉hdmi导致桌面和任务栏崩溃的问题
+
+在拔掉hdmi后，可能由于kwin和后端的处理逻辑有问题，在前端接收刷新信号时buffer为空导致崩溃，目前临时在崩溃点做判空处理规避掉崩溃
+
+Log: 设在仅DP-1屏幕显示，拔掉hdmi导致桌面和任务栏崩溃
+Bug: https://pms.uniontech.com/zentao/bug-view-55337.html
+
+gitlab: https://gitlabwh.uniontech.com/wuhan/debian-patch/qt5.15/qtwayland-opensource-src/-/commit/7b637927dccf7e01c96d022d58cbeb25299931e2
+
+---
+
+Index: qtwayland-opensource-src/src/client/qwaylandshmbackingstore.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandshmbackingstore.cpp
++++ qtwayland-opensource-src/src/client/qwaylandshmbackingstore.cpp
+@@ -206,8 +206,11 @@ void QWaylandShmBackingStore::ensureSize
+     // TODO: 缩放情况下，如果传入的size是QWindow*缩放比的size，可能会四舍五入。
+     // 会和QPlatformWindow有一个像素的误差，也会导致buffer的size和kwin那边surface的size不一致。
+     // 可以传入QWaylandWindow的Size保持与kwin一直，以防kwin等待的buffer的size有问题会一直等待，导致拉伸卡顿。
+-    // 此处TODO标记和 QWaylandWindow::applyConfigure函数标记关联。
+-    resize(waylandWindow()->geometry().size());
++    // 此处TODO标记和 QWaylandWindow::resizeFromApplyConfigure函数标记关联。
++    // TODO: 低概率出现waylandWindow的size为空的情况，当为空时，给个默认值QSize(1, 1),保证后面的刷新内存不会崩溃
++    QSize esSize = waylandWindow()->geometry().size();
++    resize(esSize.isEmpty() ? QSize(1, 1) : esSize);
++
+ 
+ }
+ 
+Index: qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandwindow.cpp
++++ qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+@@ -604,6 +604,15 @@ void QWaylandWindow::handleExpose(const
+ void QWaylandWindow::commit(QWaylandBuffer *buffer, const QRegion &damage)
+ {
+     Q_ASSERT(isExposed());
++
++    // TODO
++    // 这个地方的buffer本不应该为空，可能上层逻辑有问题导致该buffer为空而导致崩溃
++    // 目前在这里增加判空处理，解决崩溃点
++    if (!buffer) {
++        qWarning() << "Buffer is nullptr.";
++        return;
++    }
++
+     if (buffer->committed()) {
+         qCDebug(lcWaylandBackingstore) << "Buffer already committed, ignoring.";
+         return;

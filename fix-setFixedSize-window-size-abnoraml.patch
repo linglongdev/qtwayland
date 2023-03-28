@@ -1,0 +1,41 @@
+From: chengong <chengong@uniontech.com>
+Date: Oct 19, 2020 8:35pm GMT+0800
+Subject: 修复调整缩放比以后任务栏中提示窗口、计算器窗口等位置和大小显示异常。
+
+QWidget通过setFixedSize设置窗口大小以后，QPlatformWindow大小设置时候传入值异常，
+之前以为QPlatformWindow的geometry未更新，后面发现是由于在QWaylandWindow中使用
+setGeometry_helper函数时候，其中会判断QWindow的最大和最小尺寸，决定最后设置给
+QPlatformWindow调用setGeometry传入rect的尺寸。
+
+Log: setFixedSize会影响，QWidget和QWindow的最大最小尺寸且与窗口大小相等
+Task: https://pms.uniontech.com/zentao/task-view-41155.html
+Change-Id: I6cc803eee1b3164fc7631b204a11f64bfe86555e
+
+gitlab: https://gitlabwh.uniontech.com/wuhan/debian-patch/qt5.15/qtwayland-opensource-src/-/commit/995720027bfdb24fa5684a0698987cc2f0867846
+
+---
+
+Index: qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandwindow.cpp
++++ qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+@@ -335,11 +335,15 @@ void QWaylandWindow::setWindowIcon(const
+ 
+ void QWaylandWindow::setGeometry_helper(const QRect &rect)
+ {
+-    QSize minimum = windowMinimumSize();
+-    QSize maximum = windowMaximumSize();
++    //QWidget use setFixedSize function, QWindow will change the max and min size.
++    //If we don't use toNativePixels function to scale QWindow's min or max size,
++    //we will set the QWindow's size to QPlatformWindow.
++    QSize minSize = QHighDpi::toNativePixels(window()->minimumSize(), window());
++    QSize maxSize = QHighDpi::toNativePixels(window()->maximumSize(), window());
++
+     QPlatformWindow::setGeometry(QRect(rect.x(), rect.y(),
+-                qBound(minimum.width(), rect.width(), maximum.width()),
+-                qBound(minimum.height(), rect.height(), maximum.height())));
++                qBound(minSize.width(), rect.width(), maxSize.width()),
++                qBound(minSize.height(), rect.height(), maxSize.height())));
+ 
+     if (mSubSurfaceWindow) {
+         QMargins m = QPlatformWindow::parent()->frameMargins();

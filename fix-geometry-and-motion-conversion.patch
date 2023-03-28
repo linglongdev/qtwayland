@@ -1,0 +1,93 @@
+Index: qtwayland-opensource-src/src/client/qwaylandinputdevice.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandinputdevice.cpp
++++ qtwayland-opensource-src/src/client/qwaylandinputdevice.cpp
+@@ -60,6 +60,7 @@
+ 
+ #include <QtGui/private/qpixmap_raster_p.h>
+ #include <QtGui/private/qguiapplication_p.h>
++#include <QtGui/private/qhighdpiscaling_p.h>
+ #include <qpa/qplatformwindow.h>
+ #include <qpa/qplatforminputcontext.h>
+ #include <QDebug>
+@@ -733,7 +734,12 @@ void QWaylandInputDevice::Pointer::point
+ 
+     QPointF pos(wl_fixed_to_double(surface_x), wl_fixed_to_double(surface_y));
+     QPointF delta = pos - pos.toPoint();
+-    QPointF global = window->window()->mapToGlobal(pos.toPoint());
++    //we need to changed surface pos, because mapToGlobal use QWindow's globalPosition to caculate global pos
++    QPointF global = window->window()->mapToGlobal(QHighDpi::fromNativePixels(pos.toPoint(), window->window()));
++
++    //we need changed golbal pos back, because processMouseMoveEvent will use fromNativePixels changed pos again
++    global = QHighDpi::toNativePixels(global, window->window());
++
+     global += delta;
+ 
+     mSurfacePos = pos;
+Index: qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandwindow.cpp
++++ qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+@@ -61,6 +61,7 @@
+ #include <QGuiApplication>
+ #include <qpa/qwindowsysteminterface.h>
+ #include <QtGui/private/qwindow_p.h>
++#include <QtGui/private/qhighdpiscaling_p.h>
+ 
+ #include <QtCore/QDebug>
+ #include <QtCore/QThread>
+@@ -194,10 +195,12 @@ void QWaylandWindow::initWindow()
+         setOrientationMask(s->orientationUpdateMask());
+     setWindowFlags(window()->flags());
+     QRect geometry = windowGeometry();
++
++    //setGeometry_helper's parameter rect will be scaled if we pass QWindow's geometry
+     if (geometry.isEmpty())
+-        setGeometry_helper(QRect(QPoint(), QSize(500,500)));
++        setGeometry_helper(QHighDpi::toNativePixels(QRect(QPoint(), QSize(500,500)), window()));
+     else
+-        setGeometry_helper(geometry);
++        setGeometry_helper(QHighDpi::toNativePixels(window()->geometry(), window()));
+     setMask(window()->mask());
+     if (mShellSurface)
+         mShellSurface->requestWindowStates(window()->windowStates());
+@@ -444,8 +447,11 @@ void QWaylandWindow::setVisible(bool vis
+ 
+     if (visible) {
+         initWindow();
++        mDisplay->flushRequests();
+ 
+-        setGeometry(windowGeometry());
++        //setGeometry's parameter rect will be scaled if we pass QWindow's geometry
++        //so we need use toNativePixels scale QWindow's geometry
++        setGeometry(QHighDpi::toNativePixels(window()->geometry(), window()));
+         // Don't flush the events here, or else the newly visible window may start drawing, but since
+         // there was no frame before it will be stuck at the waitForFrameSync() in
+         // QWaylandShmBackingStore::beginPaint().
+Index: qtwayland-opensource-src/src/plugins/shellintegration/xdg-shell-v6/qwaylandxdgshellv6.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/plugins/shellintegration/xdg-shell-v6/qwaylandxdgshellv6.cpp
++++ qtwayland-opensource-src/src/plugins/shellintegration/xdg-shell-v6/qwaylandxdgshellv6.cpp
+@@ -47,6 +47,7 @@
+ #include <QtWaylandClient/private/qwaylandabstractdecoration_p.h>
+ 
+ #include <QtGui/private/qwindow_p.h>
++#include <QtGui/private/qhighdpiscaling_p.h>
+ 
+ QT_BEGIN_NAMESPACE
+ 
+@@ -85,11 +86,12 @@ void QWaylandXdgSurfaceV6::Toplevel::app
+ 
+     m_xdgSurface->m_window->handleWindowStatesChanged(statesWithoutActive);
+ 
++    bool normalPending = !(m_pending.states & (Qt::WindowMaximized|Qt::WindowFullScreen));
+     if (m_pending.size.isEmpty()) {
+         // An empty size in the configure means it's up to the client to choose the size
+-        bool normalPending = !(m_pending.states & (Qt::WindowMaximized|Qt::WindowFullScreen));
+         if (normalPending && !m_normalSize.isEmpty())
+-            m_xdgSurface->m_window->resizeFromApplyConfigure(m_normalSize);
++           // We need use toNativePixels to changed QWindow's geometry and set to QWaylandWindow
++           m_xdgSurface->m_window->resizeFromApplyConfigure(QHighDpi::toNativePixels(m_normalSize, m_xdgSurface->m_window->window()));
+     } else {
+         m_xdgSurface->m_window->resizeFromApplyConfigure(m_pending.size);
+     }

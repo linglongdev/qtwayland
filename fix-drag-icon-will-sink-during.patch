@@ -1,0 +1,32 @@
+From: chengong <chengong@uniontech.com>
+Date: Dec 19, 2020 3:47pm GMT+0800
+Subject: 修复拖放图标在拖动过程中会下沉
+
+kwin处理拖拽窗口surface显示位置会在当前鼠标位置基础上加上QDrag设置的hotSpot的偏移位置。导致图标会下沉原因是由于拖放时，图标窗口重新提交了新的buffer，在第一次提交buffer的时候，客户端将图标窗口提交的buffer的偏移位置(这个位置等于QDrag::hotSpot值)清空，导致下次提交buffer的时候位置偏移为0，从而重新提交buffer以后kwin会将拖放图标的surface显示为鼠标位置相同的地方。
+
+Log: 在窗口为拖放窗口时不清空buffer偏移位置。
+Bug: https://pms.uniontech.com/zentao/bug-view-54597.html
+
+gitlab: https://gitlabwh.uniontech.com/wuhan/debian-patch/qt5.15/qtwayland-opensource-src/-/commit/76c6c2df365a78ac20d039f64b0eb944165ad864
+
+---
+
+Index: qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandwindow.cpp
++++ qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+@@ -573,7 +573,13 @@ void QWaylandWindow::attach(QWaylandBuff
+ void QWaylandWindow::attachOffset(QWaylandBuffer *buffer)
+ {
+     attach(buffer, mOffset.x(), mOffset.y());
+-    mOffset = QPoint();
++    // If QWindow is inberited by QShapedPixmapWindow, mOffset will assignd QDrag's hotSpot(),
++    // kwin use this offset to calculate dnd icon's position, but kwin cann't record every buffer's offset.
++    // If we commit buffer to kwin, the offset will be clear. So, we commmit buffer next time,
++    // the offset will be empty, and the dnd icon will displayed in incorrect position.
++    if (!window()->inherits("QShapedPixmapWindow"))
++        mOffset = QPoint();
++
+ }
+ 
+ void QWaylandWindow::damage(const QRect &rect)

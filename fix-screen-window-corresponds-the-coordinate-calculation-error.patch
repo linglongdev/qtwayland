@@ -1,0 +1,27 @@
+From: wangxuwen <wangxuwen@uniontech.com>
+Date: Nov 23, 2020 8:00pm GMT+0800
+Subject: 解决双屏缩放坐标错误问题
+
+根本原因是获取窗口对应的屏幕有误，导致窗口坐标计算错误
+
+Log: 在坐标不为1时，坐标转换有问题
+Task: https://pms.uniontech.com/zentao/task-view-44802.html
+Change-Id: I8098492ca8e94fd0b7b5849e2160ac38878d2afc
+
+gitlab: https://gitlabwh.uniontech.com/wuhan/debian-patch/qt5.15/qtwayland-opensource-src/-/commit/11ddd19020c9cdb0d0ea6f55628b906e7e560407
+
+---
+
+Index: qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandwindow.cpp
++++ qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+@@ -384,7 +384,7 @@ void QWaylandWindow::resizeFromApplyConf
+     QMargins margins = frameMargins();
+     int widthWithoutMargins = qMax(sizeWithMargins.width() - (margins.left() + margins.right()), 1);
+     int heightWithoutMargins = qMax(sizeWithMargins.height() - (margins.top() + margins.bottom()), 1);
+-    QRect geometry(windowGeometry().topLeft(), QSize(widthWithoutMargins, heightWithoutMargins));
++    QRect geometry(this->geometry().topLeft(), QSize(widthWithoutMargins, heightWithoutMargins));
+ 
+     mOffset += offset;
+     mInResizeFromApplyConfigure = true;

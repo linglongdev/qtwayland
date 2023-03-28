@@ -1,0 +1,37 @@
+From: chengong <chengong@uniontech.com>
+Date: Nov 9, 2020 4:10pm GMT+0800
+Subject: 修复缩放后任务栏概率性出现右键菜单栏位置显示异常
+
+在任务栏上，鼠标放到某个位置会导致提示窗口闪烁，然后右键菜单栏必然出现
+显示位置异常问题。是由于pinter_enter中全局鼠标位置未处理。
+
+Log: 之前改缩放的时候漏掉了这个地方
+Task: https://pms.uniontech.com/zentao/task-view-43976.html
+Change-Id: I8d73e36bcb02a661d0312c40959bde2685f904cb
+
+gitlab: https://gitlabwh.uniontech.com/wuhan/debian-patch/qt5.15/qtwayland-opensource-src/-/commit/b51e591a73ba6ea11de8947204c16566a125c3a5
+
+---
+
+Index: qtwayland-opensource-src/src/client/qwaylandinputdevice.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandinputdevice.cpp
++++ qtwayland-opensource-src/src/client/qwaylandinputdevice.cpp
+@@ -659,8 +659,16 @@ void QWaylandInputDevice::Pointer::point
+     mFocus = window->waylandSurface();
+     connect(mFocus.data(), &QObject::destroyed, this, &Pointer::handleFocusDestroyed);
+ 
++    //The calculation method of mGlobal is the same as fucntion pointer_motion.
+     mSurfacePos = QPointF(wl_fixed_to_double(sx), wl_fixed_to_double(sy));
+-    mGlobalPos = window->window()->mapToGlobal(mSurfacePos.toPoint());
++    QPointF delta = mSurfacePos - mSurfacePos.toPoint();
++
++    QPointF global = window->window()->mapToGlobal(QHighDpi::fromNativePixels(mSurfacePos.toPoint(), window->window()));
++    global = QHighDpi::toNativePixels(global, window->window());
++    global += delta;
++
++    mGlobalPos = global;
++
+ 
+     mParent->mSerial = serial;
+     mEnterSerial = serial;

@@ -1,0 +1,79 @@
+package:
+  id: qtwayland
+  kind: lib
+  version: 5.15.1.7
+
+base:
+  id: org.deepin.base
+  version: 20.5.0
+
+depends:
+- id: qtbase
+  version: 5.11.3.15
+
+source:
+  kind: archive
+  url: https://github.com/deepin-community/qtwayland-opensource-src.git
+  patch:
+  - 0001-Client-Announce-an-output-after-receiving-more-compl.patch
+  - 0002-Fix-issue-with-repeated-window-size-changes.patch
+  - 0004-Client-Connect-drags-being-accepted-to-updating-the-.patch
+  - 0005-Client-Disconnect-registry-listener-on-destruction.patch
+  - 0006-Client-Set-XdgShell-size-hints-before-the-first-comm.patch
+  - 0007-Fix-build.patch
+  - 0008-Fix-remove-listener.patch
+  - 0009-Hook-up-queryKeyboardModifers.patch
+  - 0011-Correctly-detect-if-image-format-is-supported-by-QIm.patch
+  - 0013-Client-Don-t-always-recreate-frame-callbacks.patch
+  - 0014-Client-Always-destroy-frame-callback-in-the-actual-c.patch
+  - 0015-Fix-the-logic-for-decoding-modifiers-map-in-Wayland-.patch
+  - 0016-Wayland-client-use-wl_keyboard-to-determine-active-s.patch
+  - 0017-Client-do-not-empty-clipboard-when-a-new-popup-windo.patch
+  - 0018-Set-preedit-cursor-when-cursor-equals-to-0.patch
+  - 0019-Client-Implement-DataDeviceV3.patch
+  - 0020-Client-Delay-deletion-of-QDrag-object-until-after-we.patch
+  - 0021-Client-Avoid-processing-of-events-when-showing-windo.patch
+  - 0022-Handle-registry_global-out-of-constructor.patch
+  - 0023-Connect-flushRequest-after-forceRoundTrip.patch
+  - 0024-Move-the-wayland-socket-polling-to-a-separate-event-.patch
+  - 0026-Do-not-create-decorations-when-the-shellSurface-is-n.patch
+  - 0028-Fix-crash-if-no-input-method-module-could-be-loaded.patch
+  - 0029-Client-Remove-mWaitingForUpdateDelivery.patch
+  - 0030-Cursor-position-0-should-still-show-the-cursor.patch
+  - 0031-Update-the-preedit-styling-mapping.patch
+  - 0032-client-Simplify-round-trip-behavior.patch
+  - 0033-Client-Fix-opaque-region-setter.patch
+  - 0034-Use-proper-dependencies-in-compile-tests.patch
+  - 0035-client-update-button-state-and-etc-in-pointer_leave.patch
+  - 0036-Revert-Client-Remove-mWaitingForUpdateDelivery.patch
+  - 0037-Fix-race-condition-on-mWaitingForUpdateDelivery.patch
+  - 0038-use-poll-2-when-reading-from-clipboard.patch
+  - 0039-Reduce-memory-leakage.patch
+  - 0040-Fix-build-with-libcxx-missing-array-include.patch
+  - 0041-Only-close-popup-in-the-the-hierchary.patch
+  - 0042-Build-fixes-for-GCC-11.patch
+  - 0043-Check-pointer-for-null-before-use-in-ASSERT.patch
+  - 0044-Use-wl_surface.damage_buffer-on-the-client-side.patch
+  - 0045-Client-clear-focus-on-touch-cancel.patch
+  - 0046-Guard-mResizeDirty-by-the-correctMutex.patch
+  - 0047-client-Synthesize-enter-leave-event-for-popup-in-xdg.patch
+  - 0048-Fix-compile-tests.patch
+  - skip_animated_cursor_test.diff
+  - add-surface-creat-signal.patch
+  - fix-some-places-are-judged-empty-processing.patch
+  - Process-global-mouse-position-pinterenter.patch
+  - fix-folating-point-number-causes-window-size-erroe.patch
+  - fix-screen-window-corresponds-the-coordinate-calculation-error.patch
+  - fix-when-refreshing-buffer-is-empty-cause-crash.patch
+  - fix-drag-icon-will-sink-during.patch
+  - fix-geometry-and-motion-conversion.patch
+  - fix-setFixedSize-window-size-abnoraml.patch
+  - fix-eglGetPlatformDisplay-dont-work.patch
+  - client-avoid-processing-of-events-when-showing-windows.patch
+  commit: 7525c2a700d17022f947a09ac6f96ad36b7c31e9
+build:
+  kind: qmake
+  manual:
+    install: |
+      make install ${jobs}
+      cp src/client/*.h ${PREFIX}/include/${TRIPLET}/qt5/QtWaylandClient/*/QtWaylandClient/private

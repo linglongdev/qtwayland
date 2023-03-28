@@ -1,0 +1,67 @@
+From: chengong <chengong@uniontech.com>
+Date: Nov 5, 2020 9:25pm GMT+0800
+Subject: fix: 修复频繁拖拽任务栏会导致任务栏崩溃
+
+有些地方内存未释放或者没有加判空处理，qtwayland在某些地方
+对m_dragWindow做了判空处理，
+
+Log: 任务栏拖拽频繁存在一定问题
+Task: https://pms.uniontech.com/zentao/bug-view-53003.html
+
+gitlab: https://gitlabwh.uniontech.com/wuhan/debian-patch/qt5.15/qtwayland-opensource-src/-/commit/0472a78178146e2a965e5601051f79b8e4eae338
+
+---
+
+Index: qtwayland-opensource-src/src/client/qwaylanddatadevice.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylanddatadevice.cpp
++++ qtwayland-opensource-src/src/client/qwaylanddatadevice.cpp
+@@ -144,6 +144,10 @@ void QWaylandDataDevice::data_device_dat
+ #if QT_CONFIG(draganddrop)
+ void QWaylandDataDevice::data_device_drop()
+ {
++    //TODO： 加判空处理，任务栏频繁拖拽，有时候m_dragWindow为空导致程序crash
++    if (!m_dragWindow)
++        return;
++
+     QDrag *drag = static_cast<QWaylandDrag *>(QGuiApplicationPrivate::platformIntegration()->drag())->currentDrag();
+ 
+     QMimeData *dragData = nullptr;
+@@ -180,6 +184,10 @@ void QWaylandDataDevice::data_device_ent
+     m_dragPoint = calculateDragPosition(x, y, m_dragWindow);
+     m_enterSerial = serial;
+ 
++    //TODO： 加判空处理，任务栏频繁拖拽，有时候m_dragWindow为空导致程序crash
++    if (!m_dragWindow)
++        return;
++
+     QMimeData *dragData = nullptr;
+     Qt::DropActions supportedActions;
+ 
+@@ -225,6 +233,11 @@ void QWaylandDataDevice::data_device_mot
+ {
+     Q_UNUSED(time);
+ 
++    //TODO： 加判空处理，任务栏频繁拖拽，有时候m_dragWindow为空导致程序crash
++    if (!m_dragWindow) {
++        return;
++    }
++
+     QDrag *drag = static_cast<QWaylandDrag *>(QGuiApplicationPrivate::platformIntegration()->drag())->currentDrag();
+ 
+     if (!drag && !m_dragOffer)
+Index: qtwayland-opensource-src/src/client/qwaylandsurface.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandsurface.cpp
++++ qtwayland-opensource-src/src/client/qwaylandsurface.cpp
+@@ -65,6 +65,10 @@ QWaylandScreen *QWaylandSurface::oldestE
+ 
+ QWaylandSurface *QWaylandSurface::fromWlSurface(::wl_surface *surface)
+ {
++    //Will be crashed, if surface is null.
++    if (!surface)
++        return nullptr;
++
+     if (auto *s = QtWayland::wl_surface::fromObject(surface))
+         return static_cast<QWaylandSurface *>(s);
+     return nullptr;

@@ -1,0 +1,19 @@
+Author: Tang Haixiang <tanghaixiang@uniontech.com>
+Date:   Dec Wed 21 14:40:12 2022 +0800
+Subject: Client: Avoid processing of events when showing windows
+Upstream: https://codereview.qt-project.org/c/qt/qtwayland/+/381271
+
+---
+
+Index: qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+===================================================================
+--- qtwayland-opensource-src.orig/src/client/qwaylandwindow.cpp
++++ qtwayland-opensource-src/src/client/qwaylandwindow.cpp
+@@ -447,7 +447,6 @@ void QWaylandWindow::setVisible(bool vis
+ 
+     if (visible) {
+         initWindow();
+-        mDisplay->flushRequests();
+ 
+         //setGeometry's parameter rect will be scaled if we pass QWindow's geometry
+         //so we need use toNativePixels scale QWindow's geometry
