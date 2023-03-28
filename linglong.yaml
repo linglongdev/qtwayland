@@ -12,8 +12,9 @@ depends:
   version: 5.11.3.15
 
 source:
-  kind: archive
+  kind: git
   url: https://github.com/deepin-community/qtwayland-opensource-src.git
+  commit: 7525c2a700d17022f947a09ac6f96ad36b7c31e9
   patch:
   - 0001-Client-Announce-an-output-after-receiving-more-compl.patch
   - 0002-Fix-issue-with-repeated-window-size-changes.patch
